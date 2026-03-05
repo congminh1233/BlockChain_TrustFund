@@ -4,8 +4,21 @@ import { ethers } from 'ethers';
 // ============================================================================
 // 1. CONFIGURATION (Người dùng tự điền sau khi Deploy)
 // ============================================================================
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+const formatEth = (ethString) => {
+  if (!ethString || isNaN(Number(ethString))) {
+    return "0.0000";
+  }
+  return Number(ethString).toLocaleString('en-US', {
+    maximumFractionDigits: 4,
+  });
+};
+// ============================================================================
 const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Ví dụ: "0x123..."
-const CONTRACT_ABI = [{"type":"constructor","inputs":[{"name":"_minimum","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"approveRequest","inputs":[{"name":"_index","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"approversCount","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"cancelVoters","inputs":[{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"cancelVotesCount","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"consecutiveRejectedRequests","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"contribute","inputs":[],"outputs":[],"stateMutability":"payable"},{"type":"function","name":"contributions","inputs":[{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"createRequest","inputs":[{"name":"_description","type":"string","internalType":"string"},{"name":"_amount","type":"uint256","internalType":"uint256"},{"name":"_recipient","type":"address","internalType":"address payable"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"finalizeRequest","inputs":[{"name":"_index","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"getRefund","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"manager","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"minimumContribution","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"projectFailed","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"requests","inputs":[{"name":"","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"description","type":"string","internalType":"string"},{"name":"amount","type":"uint256","internalType":"uint256"},{"name":"recipient","type":"address","internalType":"address"},{"name":"approvalCount","type":"uint256","internalType":"uint256"},{"name":"complete","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"totalRaised","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"voteCancelProject","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"ContributeEvent","inputs":[{"name":"backer","type":"address","indexed":true,"internalType":"address"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"totalContributed","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"ProjectCancelled","inputs":[{"name":"initiator","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"RefundIssued","inputs":[{"name":"backer","type":"address","indexed":true,"internalType":"address"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"RequestCreatedEvent","inputs":[{"name":"requestId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"description","type":"string","indexed":false,"internalType":"string"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"recipient","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"error","name":"CrowdFund__AlreadyVoted","inputs":[]},{"type":"error","name":"CrowdFund__ContributionTooLow","inputs":[]},{"type":"error","name":"CrowdFund__InsufficientContractBalance","inputs":[]},{"type":"error","name":"CrowdFund__InvalidRequestAmount","inputs":[]},{"type":"error","name":"CrowdFund__NotContributor","inputs":[]},{"type":"error","name":"CrowdFund__NotEnoughVotes","inputs":[]},{"type":"error","name":"CrowdFund__NotManager","inputs":[]},{"type":"error","name":"CrowdFund__ProjectAlreadyFailed","inputs":[]},{"type":"error","name":"CrowdFund__ProjectNotFailed","inputs":[]},{"type":"error","name":"CrowdFund__RefundTransferFailed","inputs":[]},{"type":"error","name":"CrowdFund__RequestAlreadyCompleted","inputs":[]},{"type":"error","name":"CrowdFund__TransferFailed","inputs":[]}];     // Copy mảng ABI từ file JSON sau khi compile (out/CrowdFund.sol/CrowdFund.json)
+const CONTRACT_ABI = [{"type": "constructor","inputs": [{"name": "_minimum","type": "uint256","internalType": "uint256"}],"stateMutability": "nonpayable"},{"type": "function","name": "approveRequest","inputs": [{"name": "_index","type": "uint256","internalType": "uint256"}],"outputs": [],"stateMutability": "nonpayable"},{"type": "function","name": "cancelVoters","inputs": [{"name": "","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},{"type": "function","name": "cancelVotesWeight","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},{"type": "function","name": "consecutiveRejectedRequests","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},{"type": "function","name": "contribute","inputs": [],"outputs": [],"stateMutability": "payable"},{"type": "function","name": "contributions","inputs": [{"name": "","type": "address","internalType": "address"}],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},{"type": "function","name": "createRequest","inputs": [{"name": "_description","type": "string","internalType": "string"},{"name": "_amount","type": "uint256","internalType": "uint256"},{"name": "_recipient","type": "address","internalType": "address payable"}],"outputs": [],"stateMutability": "nonpayable"},{"type": "function","name": "finalizeRequest","inputs": [{"name": "_index","type": "uint256","internalType": "uint256"}],"outputs": [],"stateMutability": "nonpayable"},{"type": "function","name": "getRefund","inputs": [],"outputs": [],"stateMutability": "nonpayable"},{"type": "function","name": "lockedRefundPool","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},{"type": "function","name": "manager","inputs": [],"outputs": [{"name": "","type": "address","internalType": "address"}],"stateMutability": "view"},{"type": "function","name": "minimumContribution","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},{"type": "function","name": "projectFailed","inputs": [],"outputs": [{"name": "","type": "bool","internalType": "bool"}],"stateMutability": "view"},{"type": "function","name": "requests","inputs": [{"name": "","type": "uint256","internalType": "uint256"}],"outputs": [{"name": "description","type": "string","internalType": "string"},{"name": "amount","type": "uint256","internalType": "uint256"},{"name": "recipient","type": "address","internalType": "address"},{"name": "approvalWeight","type": "uint256","internalType": "uint256"},{"name": "complete","type": "bool","internalType": "bool"},{"name": "deadline","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},{"type": "function","name": "totalRaised","inputs": [],"outputs": [{"name": "","type": "uint256","internalType": "uint256"}],"stateMutability": "view"},{"type": "function","name": "voteCancelProject","inputs": [],"outputs": [],"stateMutability": "nonpayable"},{"type": "event","name": "ContributeEvent","inputs": [{"name": "backer","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "totalContributed","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},{"type": "event","name": "ProjectCancelVoted","inputs": [{"name": "voter","type": "address","indexed": true,"internalType": "address"},{"name": "weight","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},{"type": "event","name": "ProjectCancelled","inputs": [{"name": "initiator","type": "address","indexed": true,"internalType": "address"}],"anonymous": false},{"type": "event","name": "RefundIssued","inputs": [{"name": "backer","type": "address","indexed": true,"internalType": "address"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},{"type": "event","name": "RequestApproved","inputs": [{"name": "voter","type": "address","indexed": true,"internalType": "address"},{"name": "requestId","type": "uint256","indexed": true,"internalType": "uint256"},{"name": "weight","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},{"type": "event","name": "RequestCreatedEvent","inputs": [{"name": "requestId","type": "uint256","indexed": true,"internalType": "uint256"},{"name": "description","type": "string","indexed": false,"internalType": "string"},{"name": "amount","type": "uint256","indexed": false,"internalType": "uint256"},{"name": "recipient","type": "address","indexed": false,"internalType": "address"},{"name": "deadline","type": "uint256","indexed": false,"internalType": "uint256"}],"anonymous": false},{"type": "error","name": "CrowdFund__AlreadyVoted","inputs": []},{"type": "error","name": "CrowdFund__CannotFinalizeYet","inputs": []},{"type": "error","name": "CrowdFund__ContributionTooLow","inputs": []},{"type": "error","name": "CrowdFund__EmptyDescription","inputs": []},{"type": "error","name": "CrowdFund__InsufficientContractBalance","inputs": []},{"type": "error","name": "CrowdFund__InvalidRequest","inputs": []},{"type": "error","name": "CrowdFund__InvalidRequestAmount","inputs": []},{"type": "error","name": "CrowdFund__ManagerCannotContribute","inputs": []},{"type": "error","name": "CrowdFund__NotContributor","inputs": []},{"type": "error","name": "CrowdFund__NotEnoughVotes","inputs": []},{"type": "error","name": "CrowdFund__NotManager","inputs": []},{"type": "error","name": "CrowdFund__ProjectAlreadyFailed","inputs": []},{"type": "error","name": "CrowdFund__ProjectFailed","inputs": []},{"type": "error","name": "CrowdFund__ProjectNotFailed","inputs": []},{"type": "error","name": "CrowdFund__RefundTransferFailed","inputs": []},{"type": "error","name": "CrowdFund__RequestAlreadyCompleted","inputs": []},{"type": "error","name": "CrowdFund__RequestNotComplete","inputs": []},{"type": "error","name": "CrowdFund__TransferFailed","inputs": []},{"type": "error","name": "CrowdFund__VotingEnded","inputs": []},{"type": "error","name": "CrowdFund__ZeroAddress","inputs": []},{"type": "error","name": "CrowdFund__ZeroAmount","inputs": []}];
 
 function App() {
   // ==========================================================================
@@ -17,6 +30,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [managerAddress, setManagerAddress] = useState("");
+  const [userContribution, setUserContribution] = useState("0");
+  const [historyPage, setHistoryPage] = useState(1); // Pagination state
 
   // Dữ liệu dự án
   const [projectStats, setProjectStats] = useState({
@@ -24,9 +39,10 @@ function App() {
     minimumContribution: "0",
     totalRaised: "0",
     currentBalance: "0",
-    approversCount: "0",
+    lockedRefundPool: "0", // Thay thế approversCount
     projectFailed: false,
     consecutiveRejectedRequests: "0",
+    cancelVotesWeight: "0",
   });
 
   // Danh sách Requests
@@ -59,6 +75,7 @@ function App() {
         } else {
           setAccount(null);
           setContract(null);
+          setUserContribution("0");
         }
       };
 
@@ -96,7 +113,7 @@ function App() {
       setContract(_contract);
       
       // Load dữ liệu ngay sau khi kết nối
-      fetchProjectData(_contract, _provider);
+      fetchProjectData(_contract, _provider, accounts[0]);
 
     } catch (err) {
       console.error(err);
@@ -104,7 +121,7 @@ function App() {
     }
   };
 
-  const fetchProjectData = async (_contract, _provider) => {
+  const fetchProjectData = async (_contract, _provider, _currentAccount = account) => {
     try {
       setLoading(true);
       
@@ -113,21 +130,29 @@ function App() {
       setManagerAddress(manager);
       const minContrib = await _contract.minimumContribution();
       const totalRaised = await _contract.totalRaised();
-      const approversCount = await _contract.approversCount();
+      const lockedRefundPool = await _contract.lockedRefundPool();
       const projectFailed = await _contract.projectFailed();
       const consecutiveRejectedRequests = await _contract.consecutiveRejectedRequests();
+      const cancelVotesWeight = await _contract.cancelVotesWeight();
       
       // Lấy số dư thực tế của Contract
       const balance = await _provider.getBalance(CONTRACT_ADDRESS);
+
+      // Lấy thông tin đóng góp của user hiện tại
+      if (_currentAccount) {
+        const contrib = await _contract.contributions(_currentAccount);
+        setUserContribution(ethers.formatEther(contrib));
+      }
 
       setProjectStats({
         manager: manager.toLowerCase(),
         minimumContribution: ethers.formatEther(minContrib),
         totalRaised: ethers.formatEther(totalRaised),
         currentBalance: ethers.formatEther(balance),
-        approversCount: approversCount.toString(),
+        lockedRefundPool: ethers.formatEther(lockedRefundPool),
         projectFailed: projectFailed,
         consecutiveRejectedRequests: consecutiveRejectedRequests.toString(),
+        cancelVotesWeight: ethers.formatEther(cancelVotesWeight),
       });
 
       // 2. Lấy danh sách Requests
@@ -137,15 +162,19 @@ function App() {
       let index = 0;
       while (true) {
         try {
-          // Gọi requests(index) -> Trả về mảng [desc, amount, recipient, approvalCount, complete]
+          // Gọi requests(index)
           const req = await _contract.requests(index);
+          const deadlineTs = Number(req[5]);
           reqs.push({
             id: index,
             description: req[0],
             amount: ethers.formatEther(req[1]),
             recipient: req[2],
-            approvalCount: req[3].toString(),
-            complete: req[4]
+            approvalWeight: ethers.formatEther(req[3]),
+            complete: req[4],
+            deadlineTs: deadlineTs,
+            deadline: new Date(deadlineTs * 1000).toLocaleString(),
+            creationDate: new Date((deadlineTs - 7 * 24 * 60 * 60) * 1000).toLocaleDateString()
           });
           index++;
         } catch (e) {
@@ -166,6 +195,33 @@ function App() {
   // 4. TRANSACTION HANDLERS
   // ==========================================================================
 
+  // Helper function: Parse Error Message
+  const getFriendlyErrorMessage = (error) => {
+    console.error("Transaction Error:", error); // Log raw error for debugging
+
+    // 1. User Rejected
+    if (error.code === "ACTION_REJECTED" || (error.message && error.message.includes("user rejected"))) {
+      return "User rejected the transaction.";
+    }
+
+    // 2. Ethers v6 / Custom Errors
+    // Ethers usually populates 'reason' with the revert string or custom error name if ABI is present
+    if (error.reason) return error.reason;
+
+    // 3. Try to decode custom error from data if present (and not parsed by Ethers)
+    if (error.data) {
+      try {
+        const iface = new ethers.Interface(CONTRACT_ABI);
+        const decoded = iface.parseError(error.data);
+        if (decoded) return `Contract Error: ${decoded.name}`;
+      } catch (e) { /* ignore decoding error */ }
+    }
+
+    // 4. Fallback to short message or full message
+    if (error.shortMessage) return error.shortMessage;
+    return error.message || "An unknown error occurred.";
+  };
+
   // Helper để xử lý transaction
   const handleTx = async (txFn) => {
     if (!contract) return;
@@ -178,9 +234,10 @@ function App() {
       // Reload lại dữ liệu
       fetchProjectData(contract, provider);
     } catch (err) {
-      console.error(err);
-      // Parse lỗi từ Ethers (nếu có custom error)
-      setError(err.reason || err.message || "Giao dịch thất bại!");
+      const friendlyMsg = getFriendlyErrorMessage(err);
+      setError(friendlyMsg);
+      // Auto-hide toast after 6 seconds
+      setTimeout(() => setError(""), 6000);
     } finally {
       setLoading(false);
     }
@@ -217,6 +274,20 @@ function App() {
   };
 
   const onFinalizeRequest = (id) => {
+    const req = requests.find((r) => r.id === id);
+    if (!req) return;
+
+    const totalRaisedNum = Number(projectStats.totalRaised);
+    const approvalWeightNum = Number(req.approvalWeight);
+    
+    // Check if failing (<= 50%)
+    const isFailing = approvalWeightNum <= (totalRaisedNum / 2);
+
+    if (isFailing) {
+      const confirmed = window.confirm("⚠️ Cảnh báo: Yêu cầu này chưa đạt đủ >50% phiếu thuận. Nếu bạn Finalize ngay lúc này, hệ thống sẽ tính đây là 1 lần THẤT BẠI. (Dự án sẽ bị hủy nếu đạt 4 lần thất bại liên tiếp). Bạn có chắc chắn muốn tiếp tục?");
+      if (!confirmed) return;
+    }
+
     handleTx(() => contract.finalizeRequest(id));
   };
 
@@ -226,6 +297,13 @@ function App() {
 
   const isManager = account?.toLowerCase() === managerAddress?.toLowerCase();
   const consecutiveFailures = Number(projectStats.consecutiveRejectedRequests);
+
+  // Filter & Pagination Logic
+  const activeRequests = requests.filter(req => !req.complete);
+  const historyRequests = requests.filter(req => req.complete).sort((a, b) => b.id - a.id); // Newest first
+  const itemsPerPage = 5;
+  const totalPages = Math.ceil(historyRequests.length / itemsPerPage);
+  const currentHistory = historyRequests.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white font-sans p-6">
@@ -255,10 +333,19 @@ function App() {
           </button>
         </header>
 
-        {/* ERROR MESSAGE */}
+        {/* ERROR TOAST (Fixed Position) */}
         {error && (
-          <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded-lg">
-            ⚠️ {error}
+          <div className="fixed top-5 right-5 z-50 max-w-md w-full bg-red-900/95 border border-red-500 text-red-100 p-4 rounded-lg shadow-2xl backdrop-blur-sm transition-all transform translate-y-0" style={{ wordBreak: "break-word" }}>
+            <div className="flex justify-between items-start gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div className="flex-1 overflow-hidden">
+                <h4 className="font-bold text-sm uppercase text-red-300 mb-1">Transaction Failed</h4>
+                <p className="text-sm max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                  {error}
+                </p>
+              </div>
+              <button onClick={() => setError("")} className="text-red-300 hover:text-white font-bold text-xl leading-none">&times;</button>
+            </div>
           </div>
         )}
 
@@ -310,9 +397,9 @@ function App() {
 
         {/* DASHBOARD STATS */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <StatCard label="Total Raised" value={`${projectStats.totalRaised} ETH`} />
-          <StatCard label="Current Balance" value={`${projectStats.currentBalance} ETH`} />
-          <StatCard label="Backers" value={projectStats.approversCount} />
+          <StatCard label="Total Raised" value={`${formatEth(projectStats.totalRaised)} ETH`} fullValue={`${projectStats.totalRaised} ETH`} />
+          <StatCard label="Current Balance" value={`${formatEth(projectStats.currentBalance)} ETH`} fullValue={`${projectStats.currentBalance} ETH`} />
+          <StatCard label="Locked Refund Pool" value={`${formatEth(projectStats.lockedRefundPool)} ETH`} fullValue={`${projectStats.lockedRefundPool} ETH`} />
           <div className={`p-6 rounded-xl border ${projectStats.projectFailed ? "bg-red-900/20 border-red-500" : "bg-green-900/20 border-green-500"}`}>
             <p className="text-gray-400 text-sm uppercase tracking-wider">Status</p>
             <p className={`text-2xl font-bold mt-2 ${projectStats.projectFailed ? "text-red-400" : "text-green-400"}`}>
@@ -331,6 +418,11 @@ function App() {
             <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
               <h2 className="text-xl font-bold mb-4 text-blue-300">Backer Area</h2>
               
+              <div className="mb-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg flex justify-between items-center">
+                <span className="text-gray-300">Your Contribution:</span>
+                <span className="text-xl font-bold text-blue-400 truncate" title={`${userContribution} ETH`}>{formatEth(userContribution)} ETH</span>
+              </div>
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Contribute Amount (ETH)</label>
@@ -392,73 +484,186 @@ function App() {
                 </div>
               </div>
             )}
+
+            {/* CANCELLATION TRACKER */}
+            {!projectStats.projectFailed && Number(projectStats.totalRaised) > 0 && (
+              <div className="bg-gray-800 p-6 rounded-xl border border-red-500/30 shadow-lg mt-8">
+                <h2 className="text-xl font-bold mb-4 text-red-400 flex items-center gap-2">
+                  <span>🚨</span> Refund Vote Progress
+                </h2>
+                
+                {(() => {
+                  const cancelWeightNum = Number(projectStats.cancelVotesWeight);
+                  const totalRaisedNum = Number(projectStats.totalRaised);
+                  const cancelThreshold = totalRaisedNum / 2;
+                  const cancelPercent = cancelThreshold > 0 ? Math.min((cancelWeightNum / cancelThreshold) * 100, 100) : 0;
+                  const isHighRisk = cancelPercent >= 75;
+
+                  return (
+                    <div>
+                      <div className="flex justify-between items-end mb-2">
+                        <span className="text-gray-400 text-sm">Votes to Cancel Project</span>
+                        <div className="text-right">
+                          <span className={`font-bold text-lg ${isHighRisk ? 'text-red-400' : 'text-orange-400'}`}>
+                            {formatEth(projectStats.cancelVotesWeight)}
+                          </span>
+                          <span className="text-sm text-gray-500"> / {formatEth(cancelThreshold)} ETH</span>
+                        </div>
+                      </div>
+                      
+                      <div className="w-full bg-gray-900 h-3 rounded-full overflow-hidden border border-gray-700">
+                        <div 
+                          className={`h-full transition-all duration-500 ${isHighRisk ? 'bg-red-500' : 'bg-orange-500'}`}
+                          style={{ width: `${cancelPercent}%` }}
+                        ></div>
+                      </div>
+                      
+                      <p className="text-xs text-gray-500 mt-2 text-right">
+                        Reaching the threshold (&gt;50% of total funds) will automatically cancel the project and unlock refunds.
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           {/* RIGHT COLUMN: REQUESTS LIST */}
           <div className="lg:col-span-2">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <span>Spending Requests</span>
-              <span className="bg-gray-700 text-sm px-2 py-1 rounded-full">{requests.length}</span>
-            </h2>
-
-            <div className="space-y-4">
-              {requests.length === 0 ? (
-                <p className="text-gray-500 italic">No requests created yet.</p>
-              ) : (
-                requests.map((req) => {
-                  const totalApprovers = Number(projectStats.approversCount);
-                  const approvalCount = Number(req.approvalCount);
-                  
-                  let statusBadge;
-                  if (!req.complete) {
-                    statusBadge = <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-900 text-yellow-300">PENDING</span>;
-                  } else if (approvalCount > totalApprovers / 2) {
-                    statusBadge = <span className="px-2 py-1 rounded text-xs font-bold bg-green-900 text-green-300">SUCCESS</span>;
-                  } else {
-                    statusBadge = <span className="px-2 py-1 rounded text-xs font-bold bg-red-900/50 text-red-300 border border-red-700">REJECTED</span>;
-                  }
+            
+            {/* SECTION 1: ACTIVE PROPOSAL */}
+            {activeRequests.length > 0 && (
+              <div className="mb-10">
+                <h2 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2">
+                  <span className="animate-pulse">●</span> Current Active Proposal
+                </h2>
+                {activeRequests.map((req) => {
+                  const totalRaised = Number(projectStats.totalRaised);
+                  const approvalWeight = Number(req.approvalWeight);
+                  const threshold = totalRaised / 2;
+                  const approvalPercent = threshold > 0 ? Math.min((approvalWeight / threshold) * 100, 100) : 0;
 
                   return (
-                  <div key={req.id} className={`p-5 rounded-xl border ${req.complete ? "bg-gray-800/50 border-gray-700 opacity-70" : "bg-gray-800 border-gray-600"}`}>
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="text-lg font-bold text-white">{req.description}</h3>
-                      {statusBadge}
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 text-sm text-gray-300 mb-4">
-                      <div><span className="text-gray-500">Amount:</span> {req.amount} ETH</div>
-                      <div><span className="text-gray-500">Recipient:</span> {req.recipient.slice(0,6)}...{req.recipient.slice(-4)}</div>
-                      <div className="col-span-2">
-                        <span className="text-gray-500">Approval:</span> 
-                        <span className="text-white font-bold ml-2">{req.approvalCount}</span> 
-                        <span className="text-gray-500 mx-1">/</span> 
-                        <span>{projectStats.approversCount} Backers</span>
+                    <div key={req.id} className="bg-gray-800 border-2 border-green-500/30 p-6 rounded-xl shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 right-0 bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                        VOTING LIVE
                       </div>
-                    </div>
+                      
+                      <div className="mb-4">
+                        <h3 className="text-2xl font-bold text-white break-words">{req.description}</h3>
+                        <p className="text-sm text-gray-400 mt-1">Created on: {req.creationDate} • Deadline: {req.deadline}</p>
+                      </div>
 
-                    {!req.complete && (
-                      <div className="flex gap-3 mt-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div className="bg-gray-900/50 p-4 rounded-lg">
+                          <p className="text-gray-500 text-xs uppercase">Request Amount</p>
+                          <p className="text-xl font-bold text-white truncate" title={`${req.amount} ETH`}>{formatEth(req.amount)} ETH</p>
+                          <p className="text-gray-500 text-xs mt-1">To: {req.recipient.slice(0,6)}...{req.recipient.slice(-4)}</p>
+                        </div>
+                        <div className="bg-gray-900/50 p-4 rounded-lg">
+                          <p className="text-gray-500 text-xs uppercase">Approval Progress</p>
+                          <div className="flex items-end gap-2">
+                            <p className="text-xl font-bold text-green-400 truncate" title={`${req.approvalWeight} ETH`}>{formatEth(req.approvalWeight)}</p>
+                            <p className="text-sm text-gray-500 mb-1 truncate" title={`${threshold} ETH`}>/ {formatEth(threshold)} ETH</p>
+                          </div>
+                          {/* Progress Bar */}
+                          <div className="w-full bg-gray-700 h-2 rounded-full mt-2 overflow-hidden">
+                            <div 
+                              className="bg-green-500 h-full transition-all duration-500" 
+                              style={{ width: `${Math.min(approvalPercent, 100)}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1 text-right">Goal: Reach &gt;50% of total funds ({formatEth(threshold)} ETH) to approve.</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
                         {!isManager && (
                           <button 
                             onClick={() => onApproveRequest(req.id)}
-                            className="flex-1 bg-green-600 hover:bg-green-700 py-2 rounded font-medium text-sm"
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold text-lg shadow-lg transition transform hover:scale-[1.02]"
                           >
-                            👍 Approve
+                            👍 Approve Request
                           </button>
                         )}
                         {isManager && (
                           <button 
                             onClick={() => onFinalizeRequest(req.id)}
-                            className="flex-1 bg-purple-600 hover:bg-purple-700 py-2 rounded font-medium text-sm"
+                            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-bold text-lg shadow-lg transition transform hover:scale-[1.02]"
                           >
-                            ⚡ Finalize
+                            ⚡ Finalize Request
                           </button>
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
                   );
-                })
+                })}
+              </div>
+            )}
+
+            {/* SECTION 2: FUNDING HISTORY */}
+            <div>
+              <h2 className="text-xl font-bold text-gray-300 mb-4 flex items-center justify-between">
+                <span>Funding History</span>
+                <span className="text-sm font-normal text-gray-500">Page {historyPage} of {totalPages || 1}</span>
+              </h2>
+
+              <div className="space-y-4">
+                {currentHistory.length === 0 ? (
+                  <div className="p-8 text-center border border-gray-700 rounded-xl bg-gray-800/50">
+                    <p className="text-gray-500">No finalized requests yet.</p>
+                  </div>
+                ) : (
+                  currentHistory.map((req) => {
+                    const totalRaised = Number(projectStats.totalRaised);
+                    const approvalWeight = Number(req.approvalWeight);
+                    const isApproved = approvalWeight > totalRaised / 2;
+
+                    return (
+                      <div key={req.id} className="bg-gray-800 border border-gray-700 p-5 rounded-xl opacity-90 hover:opacity-100 transition">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="text-lg font-bold text-gray-200 break-words">{req.description}</h3>
+                            <p className="text-xs text-gray-500">Created: {req.creationDate}</p>
+                          </div>
+                          {isApproved ? (
+                            <span className="px-3 py-1 rounded text-xs font-bold bg-green-900/50 text-green-400 border border-green-700" title={`Snapshot Verified: ${req.approvalWeight} ETH`}>
+                              Approved: {formatEth(req.approvalWeight)} ETH (&gt;50%)
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded text-xs font-bold bg-red-900/50 text-red-400 border border-red-700">
+                              Rejected / Expired
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex justify-between items-center text-sm text-gray-400 mt-3">
+                          <span>Amount: <span className="text-white truncate" title={`${req.amount} ETH`}>{formatEth(req.amount)} ETH</span></span>
+                          <span>Recipient: {req.recipient.slice(0,6)}...</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center gap-4 mt-6">
+                  <button 
+                    onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                    disabled={historyPage === 1}
+                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50 transition"
+                  >
+                    Previous
+                  </button>
+                  <button 
+                    onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                    disabled={historyPage === totalPages}
+                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50 transition"
+                  >
+                    Next
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -470,11 +675,11 @@ function App() {
 }
 
 // Component phụ hiển thị thẻ thống kê
-function StatCard({ label, value }) {
+function StatCard({ label, value, fullValue }) {
   return (
-    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-sm">
+    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-sm overflow-hidden">
       <p className="text-gray-400 text-sm uppercase tracking-wider">{label}</p>
-      <p className="text-2xl font-bold text-white mt-2">{value}</p>
+      <p className="text-2xl font-bold text-white mt-2 truncate" title={fullValue || value}>{value}</p>
     </div>
   );
 }

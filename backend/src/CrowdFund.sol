@@ -15,8 +15,9 @@ contract CrowdFund {
         string description;     // Mô tả mục đích sử dụng vốn
         uint256 amount;         // Số tiền muốn rút (Wei)
         address recipient;      // Địa chỉ nhận tiền (Vendor/Supplier)
-        uint256 approvalCount;  // Số lượng phiếu thuận
+        uint256 approvalWeight; // Số lượng phiếu thuận (theo tỷ trọng đóng góp)
         bool complete;          // Trạng thái đã hoàn thành (đã rút tiền) chưa
+        uint256 deadline;       // Thời hạn kết thúc bỏ phiếu (Timestamp)
         mapping(address => bool) voters; // Theo dõi ai đã vote cho request này
     }
 
@@ -27,13 +28,13 @@ contract CrowdFund {
     address public immutable manager;                 // Người tạo dự án
     uint256 public immutable minimumContribution;     // Số tiền nạp tối thiểu
     uint256 public totalRaised;             // Tổng số ETH đã huy động được
-    uint256 public approversCount;          // Tổng số lượng Backer (Unique addresses)
     
     // Biến trạng thái cho logic Anti-Scam
     bool public projectFailed;              // Trạng thái dự án (True = Thất bại -> Mở Refund)
     uint256 public consecutiveRejectedRequests; // Đếm số lần Request bị từ chối liên tiếp
     mapping(address => bool) public cancelVoters; // Đánh dấu ai đã vote hủy
-    uint256 public cancelVotesCount;        // Tổng số phiếu đòi hủy dự án
+    uint256 public cancelVotesWeight;       // Tổng số phiếu đòi hủy dự án (theo tỷ trọng)
+    uint256 public lockedRefundPool;        // Số dư bị khóa tại thời điểm dự án fail
 
     //--------------------------------------------------------------------
     // 3. MAPPINGS & ARRAYS
@@ -51,9 +52,11 @@ contract CrowdFund {
     //--------------------------------------------------------------------
 
     event ContributeEvent(address indexed backer, uint256 amount, uint256 totalContributed);
-    event RequestCreatedEvent(uint256 indexed requestId, string description, uint256 amount, address recipient);
+    event RequestCreatedEvent(uint256 indexed requestId, string description, uint256 amount, address recipient, uint256 deadline);
     event ProjectCancelled(address indexed initiator);
     event RefundIssued(address indexed backer, uint256 amount);
+    event RequestApproved(address indexed voter, uint256 indexed requestId, uint256 weight);
+    event ProjectCancelVoted(address indexed voter, uint256 weight);
 
     //--------------------------------------------------------------------
     // 5. CUSTOM ERRORS (Gas Optimization)
@@ -71,6 +74,15 @@ contract CrowdFund {
     error CrowdFund__ProjectAlreadyFailed();
     error CrowdFund__ProjectNotFailed();
     error CrowdFund__RefundTransferFailed();
+    error CrowdFund__EmptyDescription();
+    error CrowdFund__InvalidRequest();
+    error CrowdFund__ProjectFailed();
+    error CrowdFund__RequestNotComplete();
+    error CrowdFund__VotingEnded();
+    error CrowdFund__CannotFinalizeYet();
+    error CrowdFund__ZeroAddress();
+    error CrowdFund__ZeroAmount();
+    error CrowdFund__ManagerCannotContribute();
 
     //--------------------------------------------------------------------
     // 6. MODIFIERS
@@ -92,6 +104,7 @@ contract CrowdFund {
      * @param _minimum Số tiền tối thiểu (Wei) để trở thành Backer
      */
     constructor(uint256 _minimum) {
+        if (_minimum == 0) revert CrowdFund__ZeroAmount();
         manager = msg.sender;
         minimumContribution = _minimum;
         // Các biến khác mặc định là 0 hoặc false theo default của Solidity
@@ -102,23 +115,39 @@ contract CrowdFund {
      * @dev Cập nhật totalRaised và approversCount (nếu là người mới)
      */
     function contribute() public payable {
+        if (msg.sender == manager) revert CrowdFund__ManagerCannotContribute();
+        if (msg.value == 0) revert CrowdFund__ZeroAmount();
         // Kiểm tra số tiền nạp tối thiểu
         if (msg.value < minimumContribution) {
             revert CrowdFund__ContributionTooLow();
         }
-
-        // Nếu đây là lần đầu tiên địa chỉ này nạp tiền, tăng số lượng approvers
-        if (contributions[msg.sender] == 0) {
-            approversCount++;
-        }
+        if (projectFailed) revert CrowdFund__ProjectFailed();
 
         // Cập nhật số tiền đóng góp của người dùng
         contributions[msg.sender] += msg.value;
+        
+        if (cancelVoters[msg.sender]) {
+            cancelVotesWeight += msg.value;
+        }
+        
+        uint256 reqsLen = requests.length;
+        if (reqsLen > 0) {
+            uint256 lastIndex = reqsLen - 1;
+            if (!requests[lastIndex].complete && requests[lastIndex].voters[msg.sender]) {
+                requests[lastIndex].approvalWeight += msg.value;
+            }
+        }
         
         // Cập nhật tổng số tiền huy động được của cả dự án
         totalRaised += msg.value;
 
         emit ContributeEvent(msg.sender, msg.value, contributions[msg.sender]);
+
+        if (cancelVotesWeight > totalRaised / 2) {
+            projectFailed = true;
+            lockedRefundPool = address(this).balance;
+            emit ProjectCancelled(msg.sender);
+        }
     }
 
     /**
@@ -128,16 +157,29 @@ contract CrowdFund {
      * @param _recipient Địa chỉ nhận tiền
      */
     function createRequest(string calldata _description, uint256 _amount, address payable _recipient) public onlyManager {
-        if (_amount == 0 || _amount > totalRaised) revert CrowdFund__InvalidRequestAmount();
+        if (_recipient == address(0)) revert CrowdFund__ZeroAddress();
+        if (_amount == 0) revert CrowdFund__ZeroAmount();
+        if (_amount > address(this).balance) revert CrowdFund__InvalidRequestAmount();
+        if (projectFailed) revert CrowdFund__ProjectFailed();
+        if (bytes(_description).length == 0) revert CrowdFund__EmptyDescription();
+
+        // V2: Chỉ cho phép 1 Request Active. Request trước đó phải hoàn thành (complete == true).
+        if (requests.length > 0) {
+            Request storage lastRequest = requests[requests.length - 1];
+            if (!lastRequest.complete) revert CrowdFund__RequestNotComplete();
+        }
 
         Request storage newRequest = requests.push();
         newRequest.description = _description;
         newRequest.amount = _amount;
         newRequest.recipient = _recipient;
-        newRequest.approvalCount = 0;
+        newRequest.approvalWeight = 0;
         newRequest.complete = false;
+        
+        // V2: Gán deadline là 7 ngày kể từ lúc tạo
+        newRequest.deadline = block.timestamp + 7 days;
 
-        emit RequestCreatedEvent(requests.length - 1, _description, _amount, _recipient);
+        emit RequestCreatedEvent(requests.length - 1, _description, _amount, _recipient, newRequest.deadline);
     }
 
     /**
@@ -145,14 +187,21 @@ contract CrowdFund {
      * @param _index Chỉ số của Request trong mảng
      */
     function approveRequest(uint256 _index) public {
+        if (projectFailed) revert CrowdFund__ProjectFailed();
+        if (_index >= requests.length) revert CrowdFund__InvalidRequest();
         Request storage request = requests[_index];
 
         if (request.complete) revert CrowdFund__RequestAlreadyCompleted();
         if (contributions[msg.sender] == 0) revert CrowdFund__NotContributor();
         if (request.voters[msg.sender]) revert CrowdFund__AlreadyVoted();
+        
+        // V2: Kiểm tra thời hạn Voting
+        if (block.timestamp >= request.deadline) revert CrowdFund__VotingEnded();
 
         request.voters[msg.sender] = true;
-        request.approvalCount++;
+        request.approvalWeight += contributions[msg.sender];
+
+        emit RequestApproved(msg.sender, _index, contributions[msg.sender]);
     }
 
     /**
@@ -165,26 +214,40 @@ contract CrowdFund {
         if (projectFailed) revert CrowdFund__ProjectAlreadyFailed();
         if (request.complete) revert CrowdFund__RequestAlreadyCompleted();
         
-        // Logic mới: Không revert nếu thiếu phiếu, mà xử lý theo nhánh If-Else
-        if (request.approvalCount > approversCount / 2) {
+        // V2 Logic:
+        // Điều kiện 1: Đủ phiếu quá bán (> 50%) -> Có thể finalize sớm.
+        // Điều kiện 2: Hết thời gian (deadline) -> Buộc phải finalize để chốt kết quả (đậu hoặc rớt).
+        bool hasEnoughVotes = request.approvalWeight > totalRaised / 2;
+
+        if (hasEnoughVotes) {
             // --- TRƯỜNG HỢP THÀNH CÔNG ---
             if (address(this).balance < request.amount) revert CrowdFund__InsufficientContractBalance();
 
             // Effects
             request.complete = true;
-            consecutiveRejectedRequests = 0; // Reset bộ đếm
 
             // Interactions
             (bool success, ) = request.recipient.call{value: request.amount}("");
-            if (!success) revert CrowdFund__TransferFailed();
+            
+            if (success) {
+                consecutiveRejectedRequests = 0;
+            } else {
+                consecutiveRejectedRequests++;
+                if (consecutiveRejectedRequests >= 4) {
+                    projectFailed = true;
+                    lockedRefundPool = address(this).balance;
+                    emit ProjectCancelled(msg.sender);
+                }
+            }
         } else {
-            // --- TRƯỜNG HỢP THẤT BẠI (Bị Backer từ chối) ---
+            // --- TRƯỜNG HỢP THẤT BẠI (Hết giờ mà không đủ phiếu) ---
             request.complete = true; // Đóng request này lại
             consecutiveRejectedRequests++; // Tăng bộ đếm thất bại
 
             // Kiểm tra điều kiện Anti-Scam bị động
             if (consecutiveRejectedRequests >= 4) {
                 projectFailed = true;
+                lockedRefundPool = address(this).balance;
                 emit ProjectCancelled(msg.sender);
             }
         }
@@ -199,10 +262,13 @@ contract CrowdFund {
         if (cancelVoters[msg.sender]) revert CrowdFund__AlreadyVoted();
 
         cancelVoters[msg.sender] = true;
-        cancelVotesCount++;
+        cancelVotesWeight += contributions[msg.sender];
 
-        if (cancelVotesCount > approversCount / 2) {
+        emit ProjectCancelVoted(msg.sender, contributions[msg.sender]);
+
+        if (cancelVotesWeight > totalRaised / 2) {
             projectFailed = true;
+            lockedRefundPool = address(this).balance;
             emit ProjectCancelled(msg.sender);
         }
     }
@@ -216,7 +282,7 @@ contract CrowdFund {
 
         // Tính toán số tiền hoàn lại dựa trên tỷ lệ đóng góp và số dư hiện tại
         // Công thức: (Tiền đã nạp * Số dư contract còn lại) / Tổng tiền đã huy động
-        uint256 refundAmount = (contributions[msg.sender] * address(this).balance) / totalRaised;
+        uint256 refundAmount = (contributions[msg.sender] * lockedRefundPool) / totalRaised;
 
         // Effects: Reset số dư đóng góp về 0 để tránh Reentrancy
         contributions[msg.sender] = 0;
